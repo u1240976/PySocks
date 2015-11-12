@@ -1,4 +1,8 @@
+import imp
+#for reseting module state
+
 import unittest
+import socket
 import socks
 
 # week normal test
@@ -182,6 +186,39 @@ class socksocketProxySettingTestCase(unittest.TestCase):
         for test_input, test_answer in zip(test_inputs, test_answers):
             self.test_socket.proxy = test_input
             self.assertEqual(self.test_socket._proxy_addr(), test_answer)
+
+class SockSocketCtorTestCase(unittest.TestCase):
+    """
+    We need to reset the static members in socks module before using it
+    """
+    def setUp(self):
+        imp.reload(socks)
+
+    """
+    Normal Test
+    """
+    def testCtorGerneral_Normal1(self):
+        s = socks.socksocket()
+        self.assertEqual(s._savenames,[])
+        self.assertEqual(s.proxy, (None,None,None,None,None,None))
+        for wanted in ("sendto", "send", "recvfrom", "recv"):
+             self.assertEqual(True, hasattr(s, wanted))
+
+    def testCtorAF_Normal1(self):
+        _testAddrFamily = [socket.AF_INET, socket.AF_INET6]
+        for iTestCase in _testAddrFamily:
+            s = socks.socksocket(family=iTestCase)
+            self.assertEqual(s.family,iTestCase)
+    def testCtorSOCK_Normal2(self):
+        _testSocketType = [socket.SOCK_STREAM, socket.SOCK_DGRAM]
+        with self.assertRaises(ValueError):
+            s = socks.socksocket(family=socket.AF_UNIX)
+    """
+    Robust Test
+    """
+    def testCtorAF_Robust1(self):
+        with self.assertRaises(ValueError):
+            s = socks.socksocket(family=socket.AF_UNIX)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
