@@ -215,6 +215,9 @@ class socksocket(_BaseSocket):
     default_proxy = None
 
     def __init__(self, family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0, *args, **kwargs):
+        if family not in (socket.AF_INET, socket.AF_INET6):
+            msg = "Address Family must be stream or datagram, not {!r}"
+            raise ValueError(msg.format(type))
         if type not in (socket.SOCK_STREAM, socket.SOCK_DGRAM):
             msg = "Socket type must be stream or datagram, not {!r}"
             raise ValueError(msg.format(type))
