@@ -271,6 +271,17 @@ class socksocketConnectTest(unittest.TestCase):
         except Exception as e:
             self.assertEqual(type(e), socks.ProxyConnectionError)
 
+    # def test_connect_dest_pair_failed(self):
+    #     self.proxy_socket.set_proxy(socks.SOCKS5, "localhost", 65531)
+    #     try:
+    #         self.proxy_socket.connect(None)
+    #     except Exception as e:
+    #         self.assertEqual(type(e), socks.GeneralProxyError)
+    #     try:
+    #         self.proxy_socket.connect(("localhost", 65530, 1))
+    #     except Exception as e:
+    #         self.assertEqual(type(e), socks.GeneralProxyError)
+
     def test_connect(self):
         self.proxy_socket.set_proxy(socks.SOCKS4, "localhost", socksocketConnectTest.SOCKS4_PROXY_PORT)
         self.proxy_socket.connect(("127.0.0.1", socksocketConnectTest.TCP_ECHO_SERVER_PORT))
