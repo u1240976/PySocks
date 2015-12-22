@@ -16,6 +16,8 @@ RESENDTIMEOUT=300 # resend timeout (sec)
 
 VER="\x05"
 METHOD="\x00"
+NULBYTE='\x00'
+SOCKS4A_ACCEPT='\x5a'
 
 SUCCESS="\x00"
 SOCKFAIL="\x01"
@@ -205,6 +207,73 @@ def create_server(ip,port):
             getLogger().write("Error on starting transform:"+e.message,Log.ERROR)
             sock.close()
 
+def create_server_4a(ip,port):
+
+    transformer=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+    transformer.bind((ip,port))
+    signal.signal(signal.SIGTERM,OnExit(transformer).exit)
+    transformer.listen(1000)
+
+    while True:
+        sock,addr_info=transformer.accept()
+        sock.settimeout(SOCKTIMEOUT)
+        getLogger().write("Got one client connection")
+
+        try:
+            # Auth method
+            # | VER | CMD | PORT | DISTIP | UID
+            Ver,Cmd,Port,DistIP=(sock.recv(1),sock.recv(1),sock.recv(2),sock.recv(4))
+
+            Port = ord(Port[0])*256+ord(Port[1])
+            DNSForward = False
+
+            # Accroding to SOCKS4a, if DISTIP in the form of "0.0.0.x", handle DNS
+            if (DistIP[0] == DistIP[1] == DistIP[2] == b'\x00') and (DistIP[3] != b'\x00') :
+                DNSForward = True
+            else :
+                DistIP=".".join([str(ord(i)) for i in DistIP])
+
+            _SockUserID = []
+            while unichr(ord(sock.recv(1))) != b'\x00' :
+                _SockUserID.append(unichr(ord(sock.recv(1))))
+            UserID = "".join(_SockUserID)
+
+            _DomainName= []
+            if DNSForward:
+                while unichr(ord(sock.recv(1))) != b'\x00' :
+                    _DomainName.append(unichr(ord(sock.recv(1))))
+                DomainCon = "".join(_DomainName)
+
+            # auth response
+            # | NULBYTE | STATUS | SERVERIP | SERVER PORT
+            # Assuming recieved a valid user id
+            server_ip="".join([chr(int(i)) for i in ip.split(".")])
+            server_sock=sock
+
+            # processing Socks Requested Commands
+            if Cmd == "\x01":
+                # CONNECT Command
+                sock.sendall(NULBYTE + SOCKS4A_ACCEPT + server_ip + chr(port/256)+chr(port%256))
+
+                if DNSForward:
+                    SocketTransform(server_sock,DomainCon,Port).start()
+                else :
+                    SocketTransform(server_sock,DistIP,Port).start()
+                    
+                getLogger().write("Starting transform thread")
+            elif Cmd == "\x02":
+                # TODO: BIND Command
+                sock.sendall(NULBYTE + SOCKS4A_ACCEPT + server_ip + chr(port/256)+chr(port%256))
+                sock.close()
+            else:
+                # Unsupported Command
+                sock.sendall(NULBYTE + SOCKS4A_ACCEPT + server_ip + chr(port/256)+chr(port%256))
+                sock.close()
+
+        except Exception,e:
+            getLogger().write("Error on starting transform:"+e.message,Log.ERROR)
+            sock.close()
+
 class OnExit:
     def __init__(self,sock):
         self.sock=sock
@@ -217,7 +286,7 @@ if __name__=='__main__':
     try:
         ip="0.0.0.0"
         port=8080
-        create_server(ip,port)
+        create_server_4a(ip,port)
     except Exception,e:
         getLogger().write("Error on create server:"+e.message,Log.ERROR)
 
