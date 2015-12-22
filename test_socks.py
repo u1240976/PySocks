@@ -1,9 +1,14 @@
+#!/usr/bin/env python3
+
 import imp
 #for reseting module state
 
 import unittest
 import socket
 import socks
+import time
+import subprocess as sp
+from threading import Thread
 
 # week normal test
 # [no boundary] socks.HTTP, socks.SOCKS4, socks.SOCKS5
@@ -219,6 +224,52 @@ class SockSocketCtorTestCase(unittest.TestCase):
     def testCtorAF_Robust1(self):
         with self.assertRaises(ValueError):
             s = socks.socksocket(family=socket.AF_UNIX)
+
+# TcpEchoServer("0.0.0.0", 5000).start()
+class TcpEchoServer(Thread):
+    def __init__(self, server_ip, server_port):
+        self.server_ip = server_ip
+        self.server_port = server_port
+    
+    def run_server(self):
+        server_socket = socket.socket(AF_INET, SOCK_STREAM)
+        server_socket.bind((self.server_ip, self.server_port))
+        server_socket.listen(1)
+
+        while 1:
+            connection_socket, addr = server_socket.accept()
+            msg = connection_socket.recv(1024)
+            connection_socket.send(msg)
+
+        connection_socket.close()
+    
+    def run(self):
+        self.run_server()
+
+import socks_stub_server
+class socksocketConnectTest(unittest.TestCase):
+
+    SOCKS_PROXY_PORT = 8080
+    TCP_ECHO_SERVER_PORT = 5000
+
+    def setUp(self):
+        self.proxy_socket = socks.socksocket() # Same API as socket.socket in the standard lib
+        self.proxy_socket.set_proxy(socks.SOCKS5, "localhost", socksocketConnectTest.SOCKS_PROXY_PORT)
+        self.start_server()
+
+    def start_server(self):
+        sp.Popen(["./socks_stub_server.py"])
+        sp.Popen(["./tcp_echo_server.py"])
+        time.sleep(3)
+        # socks_stub_server.create_server("localhost", socksocketConnectTest.SOCKS_PROXY_PORT)
+        # TcpEchoServer("localhost", socksocketConnectTest.TCP_ECHO_SERVER_PORT).start()
+
+    def test_connect(self):
+        self.proxy_socket.connect(("localhost", socksocketConnectTest.TCP_ECHO_SERVER_PORT))
+        self.proxy_socket.sendall(b"hello")
+        msg = self.proxy_socket.recv(1024)
+
+        self.assertEqual(b"hello", msg)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

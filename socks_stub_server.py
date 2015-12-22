@@ -10,6 +10,7 @@ import socket
 from threading import Thread
 import sys
 import signal
+import sys
 
 SOCKTIMEOUT=5     # client connection timeout (sec)
 RESENDTIMEOUT=300 # resend timeout (sec)
@@ -71,7 +72,7 @@ class SocketTransform(Thread):
     def run(self):
         try:
             self.resend()
-        except Exception,e:
+        except Exception as e:
             getLogger().write("Error on SocketTransform %s" %(e.message,),Log.ERROR)
             self.sock.close()
             self.dest.close()
@@ -116,7 +117,7 @@ class Resender(Thread):
     def run(self):
         try:
             self.resend(self.src,self.dest)
-        except Exception,e:
+        except Exception as e:
             getLogger().write("Connection lost %s" %(e.message,),Log.ERROR)
             self.src.close()
             self.dest.close()
@@ -203,7 +204,7 @@ def create_server(ip,port):
                 sock.sendall(VER+UNSPPORTCMD+server_ip+chr(port/256)+chr(port%256))
                 sock.close()
 
-        except Exception,e:
+        except Exception as e:
             getLogger().write("Error on starting transform:"+e.message,Log.ERROR)
             sock.close()
 
@@ -286,7 +287,10 @@ if __name__=='__main__':
     try:
         ip="0.0.0.0"
         port=8080
-        create_server_4a(ip,port)
-    except Exception,e:
+        if len(sys.argv) >= 2 and sys.argv[1] == "v4":
+            create_server_4a(ip,port)
+        else:
+            create_server(ip,port)
+    except Exception as e:
         getLogger().write("Error on create server:"+e.message,Log.ERROR)
 
