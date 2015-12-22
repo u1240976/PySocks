@@ -246,29 +246,44 @@ class TcpEchoServer(Thread):
     def run(self):
         self.run_server()
 
-import socks_stub_server
 class socksocketConnectTest(unittest.TestCase):
 
-    SOCKS_PROXY_PORT = 8080
+    SOCKS4_PROXY_PORT = 8081
+    SOCKS5_PROXY_PORT = 8080
     TCP_ECHO_SERVER_PORT = 5000
 
     def setUp(self):
         self.proxy_socket = socks.socksocket() # Same API as socket.socket in the standard lib
-        self.proxy_socket.set_proxy(socks.SOCKS5, "localhost", socksocketConnectTest.SOCKS_PROXY_PORT)
         self.start_server()
 
     def start_server(self):
-        sp.Popen(["./socks_stub_server.py"])
+        sp.Popen(["./socks_stub_server.py", str(socksocketConnectTest.SOCKS5_PROXY_PORT)])
+        sp.Popen(["./socks_stub_server.py", str(socksocketConnectTest.SOCKS4_PROXY_PORT), "v4"])
         sp.Popen(["./tcp_echo_server.py"])
         time.sleep(3)
         # socks_stub_server.create_server("localhost", socksocketConnectTest.SOCKS_PROXY_PORT)
         # TcpEchoServer("localhost", socksocketConnectTest.TCP_ECHO_SERVER_PORT).start()
 
+    def test_connect_proxy_failed(self):
+        try:
+            self.proxy_socket.set_proxy(socks.SOCKS5, "localhost", 65531)
+            self.proxy_socket.connect(("localhost", 65530))
+        except Exception as e:
+            self.assertEqual(type(e), socks.ProxyConnectionError)
+
     def test_connect(self):
+        self.proxy_socket.set_proxy(socks.SOCKS4, "localhost", socksocketConnectTest.SOCKS4_PROXY_PORT)
+        self.proxy_socket.connect(("127.0.0.1", socksocketConnectTest.TCP_ECHO_SERVER_PORT))
+        self.proxy_socket.sendall(b"hello")
+        msg = self.proxy_socket.recv(1024)
+        self.assertEqual(b"hello", msg)
+        self.proxy_socket.close()
+
+        self.proxy_socket = socks.socksocket() 
+        self.proxy_socket.set_proxy(socks.SOCKS5, "localhost", socksocketConnectTest.SOCKS5_PROXY_PORT)
         self.proxy_socket.connect(("localhost", socksocketConnectTest.TCP_ECHO_SERVER_PORT))
         self.proxy_socket.sendall(b"hello")
         msg = self.proxy_socket.recv(1024)
-
         self.assertEqual(b"hello", msg)
 
 if __name__ == '__main__':

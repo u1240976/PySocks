@@ -10,7 +10,7 @@ import socket
 from threading import Thread
 import sys
 import signal
-import sys
+import traceback
 
 SOCKTIMEOUT=5     # client connection timeout (sec)
 RESENDTIMEOUT=300 # resend timeout (sec)
@@ -271,8 +271,10 @@ def create_server_4a(ip,port):
                 sock.sendall(NULBYTE + SOCKS4A_ACCEPT + server_ip + chr(port/256)+chr(port%256))
                 sock.close()
 
-        except Exception,e:
-            getLogger().write("Error on starting transform:"+e.message,Log.ERROR)
+        except Exception as e:
+            exc_info = sys.exc_info()
+            traceback.print_exception(*exc_info)
+            getLogger().write("Error on starting transform: "+str(type(e))+e.message, Log.ERROR)
             sock.close()
 
 class OnExit:
@@ -285,9 +287,12 @@ class OnExit:
 
 if __name__=='__main__':
     try:
+        if len(sys.argv) < 2:
+            print("./socks_stub_server <port> <version>")
+        
         ip="0.0.0.0"
-        port=8080
-        if len(sys.argv) >= 2 and sys.argv[1] == "v4":
+        port=int(sys.argv[1])
+        if len(sys.argv) >= 3 and sys.argv[2] == "v4":
             create_server_4a(ip,port)
         else:
             create_server(ip,port)
