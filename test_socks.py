@@ -233,6 +233,7 @@ class TcpEchoServer(Thread):
     
     def run_server(self):
         server_socket = socket.socket(AF_INET, SOCK_STREAM)
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server_socket.bind((self.server_ip, self.server_port))
         server_socket.listen(1)
 

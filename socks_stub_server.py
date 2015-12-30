@@ -29,6 +29,9 @@ TTLEXPIRED="\x06"
 UNSUPPORTCMD="\x07"
 ADDRTYPEUNSPPORT="\x08"
 UNASSIGNED="\x09"
+USERID = bytearray("TEST")
+USERNAME = "USERNAME"
+PASSWORD = "PASSWORD"
 
 _LOGGER=None
 
@@ -86,6 +89,7 @@ class SocketTransform(Thread):
         """
         self.sock=self.src
         self.dest=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        self.dest.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.dest.connect((self.dest_ip,self.dest_port))
         if self.bind:
             getLogger().write("Waiting for the client")
@@ -140,6 +144,7 @@ def create_server(ip,port):
     TODO: BIND, UDP Commands, Authentication
     """
     transformer=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+    transformer.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     transformer.bind((ip,port))
     signal.signal(signal.SIGTERM,OnExit(transformer).exit)
     transformer.listen(1000)
@@ -153,9 +158,31 @@ def create_server(ip,port):
             # Auth method
             # | VER | NMETHODS | METHODS |
             ver,nmethods,methods=(sock.recv(1),sock.recv(1),sock.recv(1))
-                # auth response
-                # | VER | METHOD |
+            # auth response
+            # | VER | METHOD |
+            # Only accept username:password for now ...
+            for methodIter in methods :
+                if methodIter == '\x02' :
+                    # Change Auth Method
+                    METHOD = '\x02'
+                    break
             sock.sendall(VER+METHOD)
+
+            if METHOD = '\x02':
+            #AUTH is set, get username:password pair and check...
+                ver,userlen=(sock.recv(1),sock.recv(1))
+                if ver != '\x01':
+                    # Strictly reject authentication with wrong version number
+                    sock.sendall(VER+'\x01')
+                userlen  = ord(userlen)
+                username = "".join([unichr(ord(i)) for i in sock.recv(userlen)])
+                passlen  = ord(userlen)
+                password = "".join([unichr(ord(i)) for i in sock.recv(passlen)])
+
+                if username ==  USERNAME and password == PASSWORD :
+                    sock.sendall(VER+'\x00')
+                else :
+                    sock.sendall(VER+'\x01')
             
             # Socks Request
             # | VER | CMD | RSV | ATYP | DST.ADDR | DST.PORT |
@@ -194,8 +221,10 @@ def create_server(ip,port):
                 getLogger().write("Starting transform thread")
                 SocketTransform(server_sock,dst_addr,dst_port).start()
             elif cmd=="\x02":
-                # TODO: BIND Command
-                sock.close()
+                # Simply fake the response since we made an echo server on localhost
+                sock.sendall(VER+SUCCESS+"\x00"+"\x01"+server_ip+chr(port/256)+chr(port%256))
+                getLogger().write("Starting transform thread")
+                SocketTransform(server_sock,"127.0.0.1",dst_port).start()
             elif cmd=="\x03":
                 # TODO: UDP ASSOCIATE Command
                 sock.close()
@@ -211,6 +240,7 @@ def create_server(ip,port):
 def create_server_4a(ip,port):
 
     transformer=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+    transformer.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     transformer.bind((ip,port))
     signal.signal(signal.SIGTERM,OnExit(transformer).exit)
     transformer.listen(1000)
@@ -244,6 +274,14 @@ def create_server_4a(ip,port):
                 while unichr(ord(sock.recv(1))) != b'\x00' :
                     _DomainName.append(unichr(ord(sock.recv(1))))
                 DomainCon = "".join(_DomainName)
+            if AuthRequest :
+                if UserID == sys.argv[3]:
+                    pass
+                else :
+                    # Status Code 0x5b means this request is rejected by server
+                    sock.sendall(NULBYTE + b'\x5b' + server_ip + chr(port/256)+chr(port%256))
+                    
+                
 
             # auth response
             # | NULBYTE | STATUS | SERVERIP | SERVER PORT
@@ -292,6 +330,10 @@ if __name__=='__main__':
         
         ip="0.0.0.0"
         port=int(sys.argv[1])
+
+        if len(sys.argv) == 3 and sys.argv[2] == 'auth':
+            AuthRequest = True
+
         if len(sys.argv) >= 3 and sys.argv[2] == "v4":
             create_server_4a(ip,port)
         else:
