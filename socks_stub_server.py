@@ -16,7 +16,7 @@ SOCKTIMEOUT=5     # client connection timeout (sec)
 RESENDTIMEOUT=300 # resend timeout (sec)
 
 VER="\x05"
-METHOD="\x00"
+DEFAULT_METHOD="\x00"
 NULBYTE='\x00'
 SOCKS4A_ACCEPT='\x5a'
 
@@ -34,6 +34,8 @@ USERNAME = "USERNAME"
 PASSWORD = "PASSWORD"
 
 _LOGGER=None
+
+AuthRequest = False
 
 # Logger
 class Log:
@@ -149,6 +151,8 @@ def create_server(ip,port):
     signal.signal(signal.SIGTERM,OnExit(transformer).exit)
     transformer.listen(1000)
 
+    method = DEFAULT_METHOD
+
     while True:
         sock,addr_info=transformer.accept()
         sock.settimeout(SOCKTIMEOUT)
@@ -164,11 +168,11 @@ def create_server(ip,port):
             for methodIter in methods :
                 if methodIter == '\x02' :
                     # Change Auth Method
-                    METHOD = '\x02'
+                    method = '\x02'
                     break
-            sock.sendall(VER+METHOD)
+            sock.sendall(VER+method)
 
-            if METHOD = '\x02':
+            if method == '\x02':
             #AUTH is set, get username:password pair and check...
                 ver,userlen=(sock.recv(1),sock.recv(1))
                 if ver != '\x01':
@@ -274,7 +278,7 @@ def create_server_4a(ip,port):
                 while unichr(ord(sock.recv(1))) != b'\x00' :
                     _DomainName.append(unichr(ord(sock.recv(1))))
                 DomainCon = "".join(_DomainName)
-            if AuthRequest :
+            if AuthRequest:
                 if UserID == sys.argv[3]:
                     pass
                 else :
