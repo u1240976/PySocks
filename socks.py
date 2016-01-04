@@ -111,6 +111,36 @@ DEFAULT_PORTS = { SOCKS4: 1080,
                   HTTP: 8080
                 }
 
+# validate functions
+def is_valid_ipv4_address(address):
+    if type(address) == str and address == 'localhost':
+        return True
+    try:
+        socket.inet_pton(socket.AF_INET, address)
+    except AttributeError:  # no inet_pton here, sorry
+        try:
+            socket.inet_aton(address)
+        except socket.error:
+            return False
+        return address.count('.') == 3
+    except socket.error:  # not a valid address
+        return False
+
+    return True
+
+def is_valid_ipv6_address(address):
+    try:
+        socket.inet_pton(socket.AF_INET6, address)
+    except socket.error:  # not a valid address
+        return False
+    return True
+
+def is_valid_ipv4_pair(pair):
+    if is_valid_ipv4_address(pair[0]):
+        if pair[1] >= 0 and pair[1] <= 65535:
+            return True
+    return False
+
 def set_default_proxy(proxy_type=None, addr=None, port=None, rdns=True, username=None, password=None):
     """
     set_default_proxy(proxy_type, addr[, port[, rdns[, username, password]]])
@@ -635,11 +665,23 @@ class socksocket(_BaseSocket):
 
         dest_pair - 2-tuple of (IP/hostname, port).
         """
-        if len(dest_pair) != 2 or dest_pair[0].startswith("["):
+        
+        # Input type check
+        if (not isinstance(dest_pair, (list, tuple))):
+            raise GeneralProxyError("Invalid destination-connection (host, port) pair")
+
+        # IPv6
+        if len(dest_pair) == 4:
+            # http://stackoverflow.com/a/5358510
             # Probably IPv6, not supported -- raise an error, and hope
             # Happy Eyeballs (RFC6555) makes sure at least the IPv4
             # connection works...
             raise socket.error("PySocks doesn't support IPv6")
+
+        # invalid IPv4 check
+        if (len(dest_pair) != 2
+                or not is_valid_ipv4_pair(dest_pair)):
+            raise GeneralProxyError("Invalid destination-connection (host, port) pair")
 
         dest_addr, dest_port = dest_pair
 
@@ -657,14 +699,6 @@ class socksocket(_BaseSocket):
             return
 
         proxy_type, proxy_addr, proxy_port, rdns, username, password = self.proxy
-
-        # Do a minimal input check first
-        if (not isinstance(dest_pair, (list, tuple))
-                or len(dest_pair) != 2
-                or not dest_addr
-                or not isinstance(dest_port, int)):
-            raise GeneralProxyError("Invalid destination-connection (host, port) pair")
-
 
         if proxy_type is None:
             # Treat like regular socket object
