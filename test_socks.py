@@ -225,28 +225,6 @@ class SockSocketCtorTestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             s = socks.socksocket(family=socket.AF_UNIX)
 
-# TcpEchoServer("0.0.0.0", 5000).start()
-class TcpEchoServer(Thread):
-    def __init__(self, server_ip, server_port):
-        self.server_ip = server_ip
-        self.server_port = server_port
-    
-    def run_server(self):
-        server_socket = socket.socket(AF_INET, SOCK_STREAM)
-        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server_socket.bind((self.server_ip, self.server_port))
-        server_socket.listen(1)
-
-        while 1:
-            connection_socket, addr = server_socket.accept()
-            msg = connection_socket.recv(1024)
-            connection_socket.send(msg)
-
-        connection_socket.close()
-    
-    def run(self):
-        self.run_server()
-
 class socksocketConnectTest(unittest.TestCase):
 
     SOCKS4_PROXY_PORT = 8081
@@ -255,15 +233,6 @@ class socksocketConnectTest(unittest.TestCase):
 
     def setUp(self):
         self.proxy_socket = socks.socksocket() # Same API as socket.socket in the standard lib
-        self.start_server()
-
-    def start_server(self):
-        sp.Popen(["./socks_stub_server.py", str(socksocketConnectTest.SOCKS5_PROXY_PORT)])
-        sp.Popen(["./socks_stub_server.py", str(socksocketConnectTest.SOCKS4_PROXY_PORT), "v4"])
-        sp.Popen(["./tcp_echo_server.py"])
-        time.sleep(3)
-        # socks_stub_server.create_server("localhost", socksocketConnectTest.SOCKS_PROXY_PORT)
-        # TcpEchoServer("localhost", socksocketConnectTest.TCP_ECHO_SERVER_PORT).start()
 
     def test_connect_proxy_failed(self):
         try:
