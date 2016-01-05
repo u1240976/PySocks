@@ -29,7 +29,7 @@ TTLEXPIRED="\x06"
 UNSUPPORTCMD="\x07"
 ADDRTYPEUNSPPORT="\x08"
 UNASSIGNED="\x09"
-USERID = bytearray("TEST")
+USERID = "TEST"
 USERNAME = "USERNAME"
 PASSWORD = "PASSWORD"
 
@@ -269,23 +269,24 @@ def create_server_4a(ip,port):
                 DistIP=".".join([str(ord(i)) for i in DistIP])
 
             _SockUserID = []
-            while unichr(ord(sock.recv(1))) != b'\x00' :
-                _SockUserID.append(unichr(ord(sock.recv(1))))
+            while True:
+                _byte = unichr(ord(sock.recv(1)))
+                if _byte == b'\x00':
+                    break
+                _SockUserID.append(_byte)
             UserID = "".join(_SockUserID)
+
+            debug_msg = "({}, {}, {}, {}, {})".format(ord(Ver), ord(Cmd), Port, DistIP, UserID)
+            getLogger().write(debug_msg)
 
             _DomainName= []
             if DNSForward:
-                while unichr(ord(sock.recv(1))) != b'\x00' :
-                    _DomainName.append(unichr(ord(sock.recv(1))))
+                while True:
+                    _byte = unichr(ord(sock.recv(1)))
+                    if _byte == b'\x00':
+                        break
+                    _DomainName.append(_byte)
                 DomainCon = "".join(_DomainName)
-            if AuthRequest:
-                if UserID == sys.argv[3]:
-                    pass
-                else :
-                    # Status Code 0x5b means this request is rejected by server
-                    sock.sendall(NULBYTE + b'\x5b' + server_ip + chr(port/256)+chr(port%256))
-                    
-                
 
             # auth response
             # | NULBYTE | STATUS | SERVERIP | SERVER PORT
@@ -293,6 +294,13 @@ def create_server_4a(ip,port):
             server_ip="".join([chr(int(i)) for i in ip.split(".")])
             server_sock=sock
 
+            if AuthRequest:
+                if UserID == USERID:
+                    pass
+                else:
+                    # Status Code 0x5b means this request is rejected by server
+                    sock.sendall(NULBYTE + b'\x5b' + server_ip + chr(port/256)+chr(port%256))
+                    
             # processing Socks Requested Commands
             if Cmd == "\x01":
                 # CONNECT Command
@@ -330,12 +338,12 @@ class OnExit:
 if __name__=='__main__':
     try:
         if len(sys.argv) < 2:
-            print("./socks_stub_server <port> <version>")
+            print("./socks_stub_server <port> <version> [auth]")
         
         ip="0.0.0.0"
         port=int(sys.argv[1])
 
-        if len(sys.argv) == 3 and sys.argv[2] == 'auth':
+        if len(sys.argv) >= 4 and sys.argv[3] == 'auth':
             AuthRequest = True
 
         if len(sys.argv) >= 3 and sys.argv[2] == "v4":
