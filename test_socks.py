@@ -266,6 +266,11 @@ class socksocketConnectTest(unittest.TestCase):
         except Exception as e:
             self.assertEqual(type(e), OSError) # socket.error is class OSError
 
+    def test_connect_no_proxy(self):
+        self.proxy_socket.set_proxy(None)
+        self.check_connect_by_echo_server()
+        self.proxy_socket.close()
+
     def test_connect(self):
         self.proxy_socket.set_proxy(socks.SOCKS4, "localhost", socksocketConnectTest.SOCKS4_PROXY_PORT)
         self.check_connect_by_echo_server()
