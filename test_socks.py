@@ -228,6 +228,7 @@ class SockSocketCtorTestCase(unittest.TestCase):
 class socksocketConnectTest(unittest.TestCase):
 
     SOCKS4_PROXY_PORT = 8081
+    SOCKS4_AUTHPROXY_PORT = 8082
     SOCKS5_PROXY_PORT = 8080
     TCP_ECHO_SERVER_PORT = 5000
 
@@ -243,26 +244,66 @@ class socksocketConnectTest(unittest.TestCase):
 
     def test_connect_dest_pair_failed(self):
         self.proxy_socket.set_proxy(socks.SOCKS5, "localhost", 65531)
+
+        # dest_pair error type
         try:
             self.proxy_socket.connect(None)
         except Exception as e:
             self.assertEqual(type(e), socks.GeneralProxyError)
+        # dest_pair len error
         try:
             self.proxy_socket.connect(("localhost", 65530, 1))
         except Exception as e:
             self.assertEqual(type(e), socks.GeneralProxyError)
+        # dest_pair port error
+        try:
+            self.proxy_socket.connect(("localhost", 66666))
+        except Exception as e:
+            self.assertEqual(type(e), socks.GeneralProxyError)
+        # dest_pair IPv6
+        try:
+            self.proxy_socket.connect(("[::1]", 80, 0, 0)) # (address, port, flow info, scope id) for ipv6
+        except Exception as e:
+            self.assertEqual(type(e), OSError) # socket.error is class OSError
 
     def test_connect(self):
         self.proxy_socket.set_proxy(socks.SOCKS4, "localhost", socksocketConnectTest.SOCKS4_PROXY_PORT)
-        self.proxy_socket.connect(("127.0.0.1", socksocketConnectTest.TCP_ECHO_SERVER_PORT))
-        self.proxy_socket.sendall(b"hello")
-        msg = self.proxy_socket.recv(1024)
-        self.assertEqual(b"hello", msg)
+        self.check_connect_by_echo_server()
         self.proxy_socket.close()
 
         self.proxy_socket = socks.socksocket() 
         self.proxy_socket.set_proxy(socks.SOCKS5, "localhost", socksocketConnectTest.SOCKS5_PROXY_PORT)
-        self.proxy_socket.connect(("localhost", socksocketConnectTest.TCP_ECHO_SERVER_PORT))
+        self.check_connect_by_echo_server()
+        self.proxy_socket.close()
+
+        self.proxy_socket = socks.socksocket() 
+        self.proxy_socket.set_proxy(socks.SOCKS4, "localhost", socksocketConnectTest.SOCKS4_AUTHPROXY_PORT, username='TEST')
+        self.check_connect_by_echo_server()
+        self.proxy_socket.close()
+
+        try:
+            self.proxy_socket = socks.socksocket() 
+            self.proxy_socket.set_proxy(socks.SOCKS4, "localhost", socksocketConnectTest.SOCKS4_AUTHPROXY_PORT)
+            self.check_connect_by_echo_server()
+            self.proxy_socket.close()
+        except Exception as e:
+            self.assertEqual(type(e), socks.GeneralProxyError)
+
+        # self.proxy_socket = socks.socksocket() 
+        # self.proxy_socket.set_proxy(socks.SOCKS4, "localhost", socksocketConnectTest.SOCKS4_AUTHPROXY_PORT, username='TEST')
+        # self.proxy_socket.connect(("www.google.com", socksocketConnectTest.TCP_ECHO_SERVER_PORT))
+        # self.proxy_socket.sendall(b"hello")
+        # msg = self.proxy_socket.recv(1024)
+        # self.assertEqual(b"hello", msg)
+        # self.proxy_socket.close()
+
+        self.proxy_socket.set_proxy(socks.SOCKS5, "localhost", socksocketConnectTest.SOCKS5_PROXY_PORT,
+          username='USERNAME', password="PASSWORD")
+        # self.check_connect_by_echo_server()
+        self.proxy_socket.close()
+
+    def check_connect_by_echo_server(self):
+        self.proxy_socket.connect(("127.0.0.1", socksocketConnectTest.TCP_ECHO_SERVER_PORT))
         self.proxy_socket.sendall(b"hello")
         msg = self.proxy_socket.recv(1024)
         self.assertEqual(b"hello", msg)

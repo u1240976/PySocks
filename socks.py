@@ -680,7 +680,8 @@ class socksocket(_BaseSocket):
 
         # invalid IPv4 check
         if (len(dest_pair) != 2
-                or not is_valid_ipv4_pair(dest_pair)):
+                or type(dest_pair[0]) != str
+                or (dest_pair[1] < 0 or dest_pair[1] > 65535) ):
             raise GeneralProxyError("Invalid destination-connection (host, port) pair")
 
         dest_addr, dest_port = dest_pair
